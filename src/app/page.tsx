@@ -1,9 +1,8 @@
 import React from 'react'
 
-const Page = () => {
+const Page = async () => {
   return (
     <div className=''>
-
     </div>
   )
 }
