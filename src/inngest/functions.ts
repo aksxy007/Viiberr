@@ -4,29 +4,37 @@ import {
   createAgent,
   createNetwork,
   createTool,
+  type Tool
 } from "@inngest/agent-kit";
 import { Sandbox } from "@e2b/code-interpreter";
 import { PROMPT } from "@/prompt";
 import { getSandbox, lastAssistantMessageContent } from "./utils";
 import { z } from "zod";
+import { prisma } from "@/lib/db";
 
-export const helloWorld = inngest.createFunction(
+interface AgentState {
+  summary: string
+  files: {[path:string]: string}
+}
+
+
+export const codeAgentInvoke = inngest.createFunction(
   { id: "invoke-llm" },
-  { event: "test/invoke" },
+  { event: "codeAgent/invoke" },
   async ({ event, step }) => {
     const sandboxId = await step.run("get-sandbox-id", async () => {
       const sandbox = await Sandbox.create("viiberr-nextjs-test");
       return sandbox.sandboxId;
     });
 
-    const codeAgent = createAgent({
+    const codeAgent = createAgent<AgentState>({
       name: "code-agent",
       description: "An expert coding agent",
       system: PROMPT,
       model: anthropic({
         model: "claude-3-5-sonnet-latest",
         defaultParameters: {
-          max_tokens: 4096,
+          max_tokens: 2048,
         },
       }),
       tools: [
@@ -38,7 +46,6 @@ export const helloWorld = inngest.createFunction(
           }),
           handler: async ({ command }, { step }) => {
             return await step?.run("terminal", async () => {
-              console.log("Terminal called")  
               const buffers = { stdout: "", stderr: "" };
               try {
                 
@@ -72,15 +79,13 @@ export const helloWorld = inngest.createFunction(
               })
             ),
           }),
-          handler: async ({ files }, { step, network }) => {
-            console.log(step)
+          handler: async ({ files }, { step, network }: Tool.Options<AgentState>) => {
             const newFiles = await step?.run(
               "createOrUpdateFiles",
               async () => {
                 try {
                   const updatedFiles = network.state.data.files || {};
                   const sandbox = await getSandbox(sandboxId);
-                  console.log(sandbox.sandboxId)
                   for (const file of files) {
                     await sandbox.files.write(file.path, file.content);
                     updatedFiles[file.path] = file.content;
@@ -92,7 +97,7 @@ export const helloWorld = inngest.createFunction(
                 }
               }
             );
-            console.log(newFiles)
+            
             if (typeof newFiles === "object") {
               network.state.data.files = newFiles;
             }
@@ -137,7 +142,7 @@ export const helloWorld = inngest.createFunction(
       },
     });
 
-    const network = createNetwork({
+    const network = createNetwork<AgentState>({
       name: "coding-agent-network",
       agents: [codeAgent],
       maxIter: 15,
@@ -153,13 +158,42 @@ export const helloWorld = inngest.createFunction(
     });
 
     const result = await network.run(event.data.text);
-    console.log("Network result trace:", result.state.data);
+
+    const isError = !result.state.data.summary || Object.keys(result.state.data.files || {}).length === 0;
 
     const sandboxURL = await step.run("get-sandbox-url", async () => {
       const sandbox = await getSandbox(sandboxId);
       const host = sandbox.getHost(3000);
       return `https://${host}`;
     });
+
+    await step.run("save-result", async () => {
+
+      if (isError){
+        return await prisma.message.create({
+          data: {
+            content: "Something went wrong. Please try again.",
+            role:"ASSISTANT",
+            type:"ERROR"
+          }
+        })
+    }
+
+      return await prisma.message.create({
+        data:{
+          content: result.state.data.summary,
+          role: "ASSISTANT",
+          type:"RESULT",
+          fragment:{
+            create:{
+              sandboxUrl: sandboxURL,
+              title: "Fragment",
+              files: result.state.data.files,
+            }
+          }
+        }
+      })
+    })
 
     return {
       url: sandboxURL,
