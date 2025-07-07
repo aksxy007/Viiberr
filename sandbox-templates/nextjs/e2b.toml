@@ -1,0 +1,17 @@
+# This is a config for E2B sandbox template.
+# You can use template ID (9p43skt9yrmyepr93khd) or template name (viiberr-nextjs-test) to create a sandbox:
+
+# Python SDK
+# from e2b import Sandbox, AsyncSandbox
+# sandbox = Sandbox("viiberr-nextjs-test") # Sync sandbox
+# sandbox = await AsyncSandbox.create("viiberr-nextjs-test") # Async sandbox
+
+# JS SDK
+# import { Sandbox } from 'e2b'
+# const sandbox = await Sandbox.create('viiberr-nextjs-test')
+
+team_id = "3d194c2e-918e-4e5a-a11f-06f78e45f384"
+start_cmd = "/compile_page.sh"
+dockerfile = "e2b.Dockerfile"
+template_name = "viiberr-nextjs-test"
+template_id = "9p43skt9yrmyepr93khd"
