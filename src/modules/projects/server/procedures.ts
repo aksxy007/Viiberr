@@ -26,7 +26,7 @@ export const projectRouter = createTRPCRouter({
                 throw new TRPCError({code: "NOT_FOUND", message:"Project not found"});
             }
 
-            return existingProject
+            return existingProject[0]
         }),
     getMany: baseProcedure
         .query(async () => {
