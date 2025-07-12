@@ -3,20 +3,22 @@ import {
   anthropic,
   createAgent,
   createNetwork,
+  createState,
   createTool,
-  type Tool
+  gemini,
+  Message,
+  type Tool,
 } from "@inngest/agent-kit";
 import { Sandbox } from "@e2b/code-interpreter";
-import { PROMPT } from "@/prompt";
+import { PROMPT, FRAGMENT_TITLE_PROMPT } from "@/prompt";
 import { getSandbox, lastAssistantMessageContent } from "./utils";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 
 interface AgentState {
-  summary: string
-  files: {[path:string]: string}
+  summary: string;
+  files: { [path: string]: string };
 }
-
 
 export const codeAgentInvoke = inngest.createFunction(
   { id: "invoke-llm" },
@@ -27,6 +29,41 @@ export const codeAgentInvoke = inngest.createFunction(
       return sandbox.sandboxId;
     });
 
+    const previousMessages = await step.run(
+      "get-previous-messages",
+      async () => {
+        const formattedMessages: Message[] = [];
+        const messages = await prisma.message.findMany({
+          where: {
+            projectId: event.data.projectId,
+          },
+          orderBy: {
+            createdAt: "asc",
+          },
+        });
+
+        for (const message of messages) {
+          formattedMessages.push({
+            type: "text",
+            role: message.role === "ASSISTANT" ? "assistant" : "user",
+            content: message.content,
+          });
+        }
+
+        return formattedMessages;
+      }
+    );
+
+    const state = createState<AgentState>(
+      {
+        summary: "",
+        files: {},
+      },
+      {
+        messages: previousMessages,
+      }
+    );
+
     const codeAgent = createAgent<AgentState>({
       name: "code-agent",
       description: "An expert coding agent",
@@ -34,7 +71,8 @@ export const codeAgentInvoke = inngest.createFunction(
       model: anthropic({
         model: process.env.CLAUDE_MODEL_NAME as string,
         defaultParameters: {
-          max_tokens: 4096,
+          max_tokens: 8000,
+          temperature: 0.1,
         },
       }),
       tools: [
@@ -48,7 +86,6 @@ export const codeAgentInvoke = inngest.createFunction(
             return await step?.run("terminal", async () => {
               const buffers = { stdout: "", stderr: "" };
               try {
-                
                 const sandbox = await getSandbox(sandboxId);
                 const result = await sandbox.commands.run(command, {
                   onStdout: (data: string) => {
@@ -79,7 +116,10 @@ export const codeAgentInvoke = inngest.createFunction(
               })
             ),
           }),
-          handler: async ({ files }, { step, network }: Tool.Options<AgentState>) => {
+          handler: async (
+            { files },
+            { step, network }: Tool.Options<AgentState>
+          ) => {
             const newFiles = await step?.run(
               "createOrUpdateFiles",
               async () => {
@@ -97,7 +137,7 @@ export const codeAgentInvoke = inngest.createFunction(
                 }
               }
             );
-            
+
             if (typeof newFiles === "object") {
               network.state.data.files = newFiles;
             }
@@ -127,7 +167,7 @@ export const codeAgentInvoke = inngest.createFunction(
           },
         }),
       ],
-      lifecycle: { 
+      lifecycle: {
         onResponse: async ({ result, network }) => {
           const lastAssistantMessageText = lastAssistantMessageContent(result);
 
@@ -146,6 +186,7 @@ export const codeAgentInvoke = inngest.createFunction(
       name: "coding-agent-network",
       agents: [codeAgent],
       maxIter: 15,
+      defaultState: state,
       router: async ({ network }) => {
         const summary = network.state.data.summary;
 
@@ -157,9 +198,42 @@ export const codeAgentInvoke = inngest.createFunction(
       },
     });
 
-    const result = await network.run(event.data.text);
+    const result = await network.run(event.data.text, { state });
 
-    const isError = !result.state.data.summary || Object.keys(result.state.data.files || {}).length === 0;
+    const fragmentTitleGenerator = createAgent<AgentState>({
+      name: "fragment-title-genrator",
+      description: "A fragment title generator",
+      system: FRAGMENT_TITLE_PROMPT,
+      model:gemini({
+        model:process.env.GEMIN_MODEL_NAME as string,
+      })
+    });
+
+    const { output: fragmentTitleOutput } = await fragmentTitleGenerator.run(
+      result.state.data.summary
+    );
+
+    const generateFragmentTitle = () => {
+      if (fragmentTitleOutput[0].type !== "text") {
+        return "Fragment";
+      }
+
+      if (Array.isArray(fragmentTitleOutput[0].content)) {
+        return fragmentTitleOutput[0].content.map((txt) => txt).join("");
+      }
+
+      return fragmentTitleOutput[0].content;
+    };
+
+    const generateResponseFormat = () => {
+      let summary = result.state.data.summary
+
+      return summary.replace(/^<task_summary>\s*/, '').replace(/\s*<\/task_summary>$/, '');
+    };
+
+    const isError =
+      !result.state.data.summary ||
+      Object.keys(result.state.data.files || {}).length === 0;
 
     const sandboxURL = await step.run("get-sandbox-url", async () => {
       const sandbox = await getSandbox(sandboxId);
@@ -168,34 +242,33 @@ export const codeAgentInvoke = inngest.createFunction(
     });
 
     await step.run("save-result", async () => {
-
-      if (isError){
+      if (isError) {
         return await prisma.message.create({
           data: {
             projectId: event.data.projectId,
             content: "Something went wrong. Please try again.",
-            role:"ASSISTANT",
-            type:"ERROR"
-          }
-        })
-    }
+            role: "ASSISTANT",
+            type: "ERROR",
+          },
+        });
+      }
 
       return await prisma.message.create({
-        data:{
+        data: {
           projectId: event.data.projectId,
-          content: result.state.data.summary,
+          content: generateResponseFormat(),
           role: "ASSISTANT",
-          type:"RESULT",
-          fragment:{
-            create:{
+          type: "RESULT",
+          fragment: {
+            create: {
               sandboxUrl: sandboxURL,
-              title: "Fragment",
+              title: generateFragmentTitle(),
               files: result.state.data.files,
-            }
-          }
-        }
-      })
-    })
+            },
+          },
+        },
+      });
+    });
 
     return {
       url: sandboxURL,
