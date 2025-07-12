@@ -11,7 +11,7 @@ import { Fragment } from "@/generated/prisma";
 import { ProjectHeader } from "../components/project-header";
 import { FragmentWeb } from "../components/fragment-web";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CodeIcon, CrownIcon, EyeIcon } from "lucide-react";
+import { CodeIcon, CrownIcon, EyeIcon, Loader2Icon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { FileExplorer } from "@/components/file-explorer";
@@ -37,10 +37,10 @@ export const ProjectView = ({ projectId }: Props) => {
           minSize={20}
           className="flex flex-col min-h-0"
         >
-          <Suspense fallback={<div>... Loading Project</div>}>
+          <Suspense fallback={<div className="flex items-center justify-center animate-spin"><Loader2Icon/></div>}>
             <ProjectHeader projectId={projectId} />
           </Suspense>
-          <Suspense fallback={<div>... Loading</div>}>
+          <Suspense fallback={<div className="flex items-center justify-center animate-spin"><Loader2Icon/></div>}>
             <MessagesContainer
               projectId={projectId}
               activeFragment={activeFragment}
