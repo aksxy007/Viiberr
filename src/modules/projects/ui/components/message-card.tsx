@@ -61,8 +61,8 @@ const FragmentCard = ({fragment, isActiveFragment, onFragmentClick}:FragmentCard
 
 const UserMessage = ({content}: UserMessageProps)=>{
     return (
-        <div className="flex justify-end pb-4 pr-2 pl-10">
-            <Card className="rounded-lg bg-muted p-3 shadow-none border-none max-w-[80%] break-words">
+        <div className="flex justify-end pt-4 pb-4 pr-2 pl-10">
+            <Card className="rounded-lg bg-muted p-3 shadow-md border max-w-[80%] break-words">
                 {content}
             </Card>
         </div>
@@ -71,8 +71,9 @@ const UserMessage = ({content}: UserMessageProps)=>{
 
 const AssistantMessage = ({content,fragment,createdAt,isActiveFragment,onFragmentClick,type}: AssistantMessageProps)=>{
     return (
-        <div className={cn(
-            "flex flex-col group px-2 pb-4",
+        <div className="flex flex-col p-1.5 m-1 border rounded-xl">
+            <div className={cn(
+            "flex flex-col group pt-2 pb-4 px-2 border rounded-xl shadow-sm dark:showdow-none",
             type === "ERROR" && "text-red-700 dark:test-red-500",
         )}>
             <div className="flex items-center gap-2 pl-2 mb-2">
@@ -93,6 +94,8 @@ const AssistantMessage = ({content,fragment,createdAt,isActiveFragment,onFragmen
                 )}
             </div>
         </div>
+        </div>
+        
     )
 }
 
