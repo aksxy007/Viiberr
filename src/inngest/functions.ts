@@ -32,9 +32,9 @@ export const codeAgentInvoke = inngest.createFunction(
       description: "An expert coding agent",
       system: PROMPT,
       model: anthropic({
-        model: "claude-3-5-sonnet-latest",
+        model: process.env.CLAUDE_MODEL_NAME as string,
         defaultParameters: {
-          max_tokens: 2048,
+          max_tokens: 4096,
         },
       }),
       tools: [
