@@ -228,7 +228,7 @@ export const codeAgentInvoke = inngest.createFunction(
     };
 
     const generateResponseFormat = () => {
-      let summary = result.state.data.summary
+      const summary = result.state.data.summary
 
       return summary.replace(/^<task_summary>\s*/, '').replace(/\s*<\/task_summary>$/, '');
     };

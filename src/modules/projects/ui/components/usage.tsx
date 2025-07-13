@@ -24,6 +24,7 @@ export const Usage = ({ points, msBeforeNext }: Props) => {
               { format: ["months", "days", "hours"] }
             )
     } catch (error) {
+      console.log("Error in usage",error)
       return "unknwon"
     }
   },[msBeforeNext])

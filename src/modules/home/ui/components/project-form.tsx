@@ -14,7 +14,6 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { PROJECT_TEMPLATES } from "./constants";
-import { useClerk } from "@clerk/nextjs";
 
 const formSchema = z.object({
   value: z
@@ -26,7 +25,6 @@ export const ProjectForm = () => {
   const router = useRouter()
   const trpc = useTRPC();
   const queryClient = useQueryClient()
-  const clerk = useClerk()
   const createProject = useMutation(trpc.projects.create.mutationOptions({
     onSuccess: (data)=>{
         queryClient.invalidateQueries(

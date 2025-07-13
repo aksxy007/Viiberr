@@ -7,7 +7,6 @@ import { CodeView } from "./code-view"
 import { convertFilesToTreeItems } from "@/lib/utils"
 import { TreeView } from "./tree-view"
 import { Breadcrumb, BreadcrumbEllipsis, BreadcrumbItem, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "./ui/breadcrumb"
-import { se } from "date-fns/locale"
 import { toast } from "sonner"
 
 type FileCollection =  {[path: string]: string}
