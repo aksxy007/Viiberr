@@ -26,6 +26,7 @@ export const codeAgentInvoke = inngest.createFunction(
   async ({ event, step }) => {
     const sandboxId = await step.run("get-sandbox-id", async () => {
       const sandbox = await Sandbox.create("viiberr-nextjs-test");
+      await sandbox.setTimeout(1_800_000)
       return sandbox.sandboxId;
     });
 
@@ -38,8 +39,9 @@ export const codeAgentInvoke = inngest.createFunction(
             projectId: event.data.projectId,
           },
           orderBy: {
-            createdAt: "asc",
+            createdAt: "desc",
           },
+          take: 5,
         });
 
         for (const message of messages) {
@@ -50,7 +52,7 @@ export const codeAgentInvoke = inngest.createFunction(
           });
         }
 
-        return formattedMessages;
+        return formattedMessages.reverse();
       }
     );
 
@@ -71,7 +73,7 @@ export const codeAgentInvoke = inngest.createFunction(
       model: anthropic({
         model: process.env.CLAUDE_MODEL_NAME as string,
         defaultParameters: {
-          max_tokens: 8000,
+          max_tokens: 4096,
           temperature: 0.1,
         },
       }),
