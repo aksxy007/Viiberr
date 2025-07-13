@@ -1,6 +1,5 @@
 import { type TreeItem } from "@/types"
 import { clsx, type ClassValue } from "clsx"
-import { KeyboardMusic } from "lucide-react"
 import { twMerge } from "tailwind-merge"
 
 export function cn(...inputs: ClassValue[]) {
