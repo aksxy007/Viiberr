@@ -20,8 +20,7 @@ export const MessagesContainer = ({projectId,activeFragment,setActiveFragment}:P
     const {data: messages} = useSuspenseQuery(trpc.messages.getMany.queryOptions({
         projectId
     },{
-        // TODO: Temporary Live messages
-        refetchInterval:5000
+        refetchInterval:2000
     }))
 
     useEffect(()=>{
